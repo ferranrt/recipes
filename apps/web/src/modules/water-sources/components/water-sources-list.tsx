@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import { IconDroplet, IconSearch } from "@tabler/icons-react"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@workspace/ui/components/input-group"
 import { Badge } from "@workspace/ui/components/badge"
 import {
   Empty,
@@ -139,9 +144,7 @@ export function WaterSourcesList({
       >
         <div className="flex flex-col gap-1">
           {showTitle ? (
-            <h2
-              className={cn("font-medium", compact ? "text-sm" : "text-base")}
-            >
+            <h2 className={cn("font-medium", compact ? "text-sm" : "text-lg")}>
               Barcelona fountains
             </h2>
           ) : null}
@@ -150,14 +153,18 @@ export function WaterSourcesList({
           </p>
         </div>
         <div className="relative">
-          <IconSearch className="pointer-events-none absolute top-1/2 left-2.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search fountains..."
-            className="pl-8"
-            aria-label="Search water sources"
-          />
+          <InputGroup>
+            <InputGroupAddon>
+              <IconSearch />
+            </InputGroupAddon>
+            <InputGroupInput
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search fountains..."
+              className="pl-8"
+              aria-label="Search water sources"
+            />
+          </InputGroup>
         </div>
         {query ? (
           <p className="text-xs text-muted-foreground">

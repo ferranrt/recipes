@@ -11,10 +11,14 @@ import {
 } from "@workspace/ui/components/ui/map"
 import { cn } from "@workspace/ui/lib/utils"
 
+import type { WaterSource } from "../types"
+import { MapRouteClickHandler } from "../route-builder/components/map-route-click-handler"
+import { RouteBuilderMapLayers } from "../route-builder/components/route-builder-map-layers"
+import type { RouteBuilderState } from "../route-builder/hooks/use-route-builder"
 import { useGeolocation } from "../hooks/use-geolocation"
 import type { UserLocation } from "../hooks/use-geolocation"
 import { getWaterSourcesBounds, waterSourcesToGeoJSON } from "../geojson"
-import type { WaterSource, WaterSourceMapProperties } from "../types"
+import type { WaterSourceMapProperties } from "../types"
 import { FountainPopup } from "./fountain-popup"
 import { MapUserLocation } from "./map-user-location"
 
@@ -27,6 +31,7 @@ type WaterSourcesMapProps = {
   sources: WaterSource[]
   selectedSource: WaterSource | null
   onSelect: (source: WaterSource | null) => void
+  routeBuilder?: RouteBuilderState
   className?: string
 }
 
@@ -111,12 +116,29 @@ export function WaterSourcesMap({
   sources,
   selectedSource,
   onSelect,
+  routeBuilder,
   className,
 }: WaterSourcesMapProps) {
   const isMobile = useIsMobile()
   const { location, permission, isLocationGranted, syncLocation, startWatch } =
     useGeolocation()
-  const geoJson = useMemo(() => waterSourcesToGeoJSON(sources), [sources])
+  const isRouteBuilding = routeBuilder?.isBuilding ?? false
+  const isPlacingWaypoints = routeBuilder?.isPlacingWaypoints ?? false
+  const isRouteComplete = routeBuilder?.isComplete ?? false
+  const isReportMode = isRouteComplete && routeBuilder?.report != null
+
+  const visibleSources = useMemo(() => {
+    if (isReportMode && routeBuilder?.report) {
+      return routeBuilder.report.entries.map((entry) => entry.source)
+    }
+
+    return sources
+  }, [isReportMode, routeBuilder?.report, sources])
+
+  const geoJson = useMemo(
+    () => waterSourcesToGeoJSON(visibleSources),
+    [visibleSources],
+  )
   const bounds = useMemo(() => getWaterSourcesBounds(sources), [sources])
   const shouldFitBarcelona = permission !== "unknown" && !isLocationGranted
 
@@ -151,11 +173,30 @@ export function WaterSourcesMap({
           data={geoJson}
           clusterMaxZoom={14}
           clusterRadius={48}
-          clusterColors={["#a78bfa", "#8b5cf6", "#6d28d9"]}
+          clusterColors={
+            isReportMode
+              ? ["#5eead4", "#14b8a6", "#0f766e"]
+              : ["#a78bfa", "#8b5cf6", "#6d28d9"]
+          }
           clusterThresholds={[25, 100]}
-          pointColor="#7c3aed"
-          onPointClick={handlePointClick}
+          pointColor={isReportMode ? "#14b8a6" : "#7c3aed"}
+          onPointClick={isRouteBuilding ? undefined : handlePointClick}
         />
+        {routeBuilder ? (
+          <>
+            <MapRouteClickHandler
+              enabled={isPlacingWaypoints}
+              onAddWaypoint={routeBuilder.addWaypoint}
+            />
+            <RouteBuilderMapLayers
+              waypoints={routeBuilder.waypoints}
+              snappedRoute={routeBuilder.snappedRoute}
+              isPlacingWaypoints={isPlacingWaypoints}
+              isComplete={isRouteComplete}
+              onRemoveWaypoint={routeBuilder.removeWaypoint}
+            />
+          </>
+        ) : null}
         <MapControls
           showZoom
           showFullscreen
@@ -171,7 +212,7 @@ export function WaterSourcesMap({
           }}
         />
         {location ? <MapUserLocation location={location} /> : null}
-        {selectedSource ? (
+        {selectedSource && !isRouteBuilding ? (
           <FountainPopup
             source={selectedSource}
             onClose={() => onSelect(null)}
