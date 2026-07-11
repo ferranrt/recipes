@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
 import { IconDroplet, IconSearch } from "@tabler/icons-react"
 import {
   InputGroup,
@@ -11,7 +11,6 @@ import {
   EmptyDescription,
   EmptyMedia,
 } from "@workspace/ui/components/empty"
-import { Input } from "@workspace/ui/components/input"
 import {
   Item,
   ItemContent,
@@ -41,12 +40,16 @@ type WaterSourceListItemProps = {
   onSelect: (source: WaterSource) => void
 }
 
-function WaterSourceListItem({
+const WaterSourceListItem = memo(function WaterSourceListItem({
   source,
   isSelected,
   onSelect,
 }: WaterSourceListItemProps) {
   const address = getWaterSourceAddress(source)
+
+  const handleSelect = useCallback(() => {
+    onSelect(source)
+  }, [onSelect, source])
 
   return (
     <Item
@@ -54,9 +57,9 @@ function WaterSourceListItem({
       variant={isSelected ? "muted" : "default"}
       className={cn(
         "w-full cursor-pointer rounded-lg",
-        isSelected && "ring-1 ring-ring"
+        isSelected && "ring-1 ring-ring",
       )}
-      onClick={() => onSelect(source)}
+      onClick={handleSelect}
     >
       <ItemMedia className="rounded-full bg-primary/10 p-1 text-primary [&_svg]:size-3.5">
         <IconDroplet />
@@ -77,7 +80,7 @@ function WaterSourceListItem({
       </ItemContent>
     </Item>
   )
-}
+})
 
 type WaterSourcesListProps = {
   sources: WaterSource[]
@@ -97,11 +100,12 @@ export function WaterSourcesList({
   showTitle = true,
 }: WaterSourcesListProps) {
   const [query, setQuery] = useState("")
+  const deferredQuery = useDeferredValue(query)
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const filteredSources = useMemo(
-    () => filterWaterSources(sources, query),
-    [query, sources]
+    () => filterWaterSources(sources, deferredQuery),
+    [deferredQuery, sources],
   )
 
   const virtualizer = useVirtualizer({
@@ -117,8 +121,8 @@ export function WaterSourcesList({
   const virtualItems = virtualizer.getVirtualItems()
 
   useEffect(() => {
-    virtualizer.scrollToOffset(0)
-  }, [query, virtualizer])
+    scrollRef.current?.scrollTo({ top: 0 })
+  }, [deferredQuery])
 
   useEffect(() => {
     if (!selectedCode) {
@@ -126,7 +130,7 @@ export function WaterSourcesList({
     }
 
     const selectedIndex = filteredSources.findIndex(
-      (source) => source.code === selectedCode
+      (source) => source.code === selectedCode,
     )
 
     if (selectedIndex >= 0) {
@@ -139,12 +143,14 @@ export function WaterSourcesList({
       <div
         className={cn(
           "flex shrink-0 flex-col gap-3 border-b",
-          compact ? "p-3" : "p-4"
+          compact ? "p-3" : "p-4",
         )}
       >
         <div className="flex flex-col gap-1">
           {showTitle ? (
-            <h2 className={cn("font-medium", compact ? "text-sm" : "text-lg")}>
+            <h2
+              className={cn("font-medium", compact ? "text-sm" : "text-lg")}
+            >
               Barcelona fountains
             </h2>
           ) : null}
@@ -166,7 +172,7 @@ export function WaterSourcesList({
             />
           </InputGroup>
         </div>
-        {query ? (
+        {deferredQuery ? (
           <p className="text-xs text-muted-foreground">
             {filteredSources.length.toLocaleString()} results
           </p>

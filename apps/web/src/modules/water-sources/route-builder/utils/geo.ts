@@ -37,6 +37,15 @@ function pointToSegmentDistanceMeters(
   start: LngLat,
   end: LngLat,
 ): number {
+  const { distanceMeters } = projectPointOntoSegment(point, start, end)
+  return distanceMeters
+}
+
+function projectPointOntoSegment(
+  point: LngLat,
+  start: LngLat,
+  end: LngLat,
+): { distanceMeters: number; distanceAlongSegmentMeters: number; segmentLengthMeters: number } {
   const origin = start
   const p = toLocalMeters(point, origin)
   const a = { x: 0, y: 0 }
@@ -47,7 +56,11 @@ function pointToSegmentDistanceMeters(
   const lengthSquared = abX * abX + abY * abY
 
   if (lengthSquared === 0) {
-    return haversineMeters(point, start)
+    return {
+      distanceMeters: haversineMeters(point, start),
+      distanceAlongSegmentMeters: 0,
+      segmentLengthMeters: 0,
+    }
   }
 
   const t = Math.max(
@@ -56,14 +69,52 @@ function pointToSegmentDistanceMeters(
   )
 
   const projection = {
-    longitude:
-      start.longitude +
-      (t * (end.longitude - start.longitude)),
-    latitude:
-      start.latitude + (t * (end.latitude - start.latitude)),
+    longitude: start.longitude + t * (end.longitude - start.longitude),
+    latitude: start.latitude + t * (end.latitude - start.latitude),
   }
 
-  return haversineMeters(point, projection)
+  const segmentLengthMeters = haversineMeters(start, end)
+
+  return {
+    distanceMeters: haversineMeters(point, projection),
+    distanceAlongSegmentMeters: t * segmentLengthMeters,
+    segmentLengthMeters,
+  }
+}
+
+export function distanceAlongPolylineMeters(
+  point: LngLat,
+  line: [number, number][],
+): number {
+  if (line.length === 0) {
+    return 0
+  }
+
+  if (line.length === 1) {
+    const [longitude, latitude] = line[0]
+    return haversineMeters(point, { longitude, latitude })
+  }
+
+  let bestDistanceAlong = 0
+  let bestDistanceToLine = Number.POSITIVE_INFINITY
+  let cumulative = 0
+
+  for (let index = 0; index < line.length - 1; index += 1) {
+    const [startLng, startLat] = line[index]
+    const [endLng, endLat] = line[index + 1]
+    const start = { longitude: startLng, latitude: startLat }
+    const end = { longitude: endLng, latitude: endLat }
+    const projection = projectPointOntoSegment(point, start, end)
+
+    if (projection.distanceMeters < bestDistanceToLine) {
+      bestDistanceToLine = projection.distanceMeters
+      bestDistanceAlong = cumulative + projection.distanceAlongSegmentMeters
+    }
+
+    cumulative += projection.segmentLengthMeters
+  }
+
+  return bestDistanceAlong
 }
 
 export function distancePointToPolylineMeters(

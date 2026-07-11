@@ -1,4 +1,6 @@
-import { useEffect, useState } from "react"
+import { useCallback, useState } from "react"
+
+import { useResponsiveDrawerDirection } from "@/hooks/use-responsive-drawer-direction"
 
 import { barcelonaWaterSources } from "../data"
 import { useRouteBuilder } from "../route-builder/hooks/use-route-builder"
@@ -17,36 +19,58 @@ import { findWaterSourceByCode, WaterSourcesMap } from "./water-sources-map"
 export function WaterSourcesPage() {
   const [selectedSource, setSelectedSource] = useState<WaterSource | null>(null)
   const [listOpen, setListOpen] = useState(false)
+  const [listMounted, setListMounted] = useState(false)
   const [reportOpen, setReportOpen] = useState(false)
-  const routeBuilder = useRouteBuilder(barcelonaWaterSources)
+  const [reportMounted, setReportMounted] = useState(false)
 
-  useEffect(() => {
-    if (routeBuilder.isComplete) {
-      setReportOpen(true)
+  const handleRouteComplete = useCallback(() => {
+    setReportMounted(true)
+    setReportOpen(true)
+  }, [])
+
+  const routeBuilder = useRouteBuilder(barcelonaWaterSources, {
+    onRouteComplete: handleRouteComplete,
+  })
+
+  const handleListOpenChange = useCallback((open: boolean) => {
+    if (open) {
+      setListMounted(true)
     }
-  }, [routeBuilder.isComplete])
 
-  const handleSelect = (source: WaterSource) => {
+    setListOpen(open)
+  }, [])
+
+  const handleReportOpenChange = useCallback((open: boolean) => {
+    setReportOpen(open)
+  }, [])
+
+  const handleSelect = useCallback((source: WaterSource) => {
     setSelectedSource((current) =>
-      current?.code === source.code ? null : source
+      current?.code === source.code ? null : source,
     )
     setListOpen(false)
-  }
+  }, [])
 
-  const handleMapSelect = (source: WaterSource | null) => {
+  const handleMapSelect = useCallback((source: WaterSource | null) => {
     if (!source) {
       setSelectedSource(null)
       return
     }
 
-    const matched = findWaterSourceByCode(barcelonaWaterSources, source.code)
+    const matched = findWaterSourceByCode(source.code)
     setSelectedSource(matched ?? source)
-  }
+  }, [])
 
-  const handleReportFountainSelect = (source: WaterSource) => {
+  const handleReportFountainSelect = useCallback((source: WaterSource) => {
     setSelectedSource(source)
     setReportOpen(false)
-  }
+  }, [])
+
+  const handleNewRoute = useCallback(() => {
+    routeBuilder.reset()
+    setReportOpen(false)
+    setReportMounted(false)
+  }, [routeBuilder])
 
   return (
     <div className="relative h-full min-h-0 flex-1 overflow-hidden">
@@ -63,7 +87,7 @@ export function WaterSourcesPage() {
           sourceCount={barcelonaWaterSources.length}
           selectedCode={selectedSource?.code ?? null}
           open={listOpen}
-          onOpenChange={setListOpen}
+          onOpenChange={handleListOpenChange}
           className="max-md:hidden"
         />
         <RouteBuilderToolbar routeBuilder={routeBuilder} />
@@ -74,13 +98,13 @@ export function WaterSourcesPage() {
           sourceCount={barcelonaWaterSources.length}
           selectedCode={selectedSource?.code ?? null}
           open={listOpen}
-          onOpenChange={setListOpen}
+          onOpenChange={handleListOpenChange}
         />
         {routeBuilder.isComplete ? (
           <RouteReportToggle
             fountainCount={routeBuilder.report?.entries.length ?? 0}
             open={reportOpen}
-            onOpenChange={setReportOpen}
+            onOpenChange={handleReportOpenChange}
           />
         ) : null}
       </div>
@@ -90,25 +114,30 @@ export function WaterSourcesPage() {
           <RouteReportToggle
             fountainCount={routeBuilder.report?.entries.length ?? 0}
             open={reportOpen}
-            onOpenChange={setReportOpen}
+            onOpenChange={handleReportOpenChange}
           />
         </div>
       ) : null}
 
-      <WaterSourcesListDrawer
-        sources={barcelonaWaterSources}
-        selectedCode={selectedSource?.code ?? null}
-        open={listOpen}
-        onOpenChange={setListOpen}
-        onSelect={handleSelect}
-      />
+      {listMounted ? (
+        <WaterSourcesListDrawer
+          sources={barcelonaWaterSources}
+          selectedCode={selectedSource?.code ?? null}
+          open={listOpen}
+          onOpenChange={handleListOpenChange}
+          onSelect={handleSelect}
+        />
+      ) : null}
 
-      <RouteReportDrawer
-        routeBuilder={routeBuilder}
-        open={reportOpen}
-        onOpenChange={setReportOpen}
-        onSelectFountain={handleReportFountainSelect}
-      />
+      {reportMounted && routeBuilder.report ? (
+        <RouteReportDrawer
+          routeBuilder={routeBuilder}
+          open={reportOpen}
+          onOpenChange={handleReportOpenChange}
+          onSelectFountain={handleReportFountainSelect}
+          onNewRoute={handleNewRoute}
+        />
+      ) : null}
     </div>
   )
 }

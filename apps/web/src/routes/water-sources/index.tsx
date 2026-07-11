@@ -1,6 +1,29 @@
+import { Suspense, lazy } from "react"
 import { createFileRoute } from "@tanstack/react-router"
 
-import { WaterSourcesPage } from "@/modules/water-sources/components/water-sources-page"
+import { Spinner } from "@workspace/ui/components/spinner"
+
+const WaterSourcesPage = lazy(async () => {
+  const module = await import(
+    "@/modules/water-sources/components/water-sources-page"
+  )
+
+  return { default: module.WaterSourcesPage }
+})
+
+function WaterSourcesRoute() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex size-full items-center justify-center">
+          <Spinner className="size-6 text-muted-foreground" />
+        </div>
+      }
+    >
+      <WaterSourcesPage />
+    </Suspense>
+  )
+}
 
 export const Route = createFileRoute("/water-sources/")({
   head: () => ({
@@ -10,5 +33,5 @@ export const Route = createFileRoute("/water-sources/")({
       },
     ],
   }),
-  component: WaterSourcesPage,
+  component: WaterSourcesRoute,
 })

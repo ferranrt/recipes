@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react"
+import { useCallback, useMemo, useState, startTransition } from "react"
 
 import type { WaterSource } from "../../types"
 import { DEFAULT_THRESHOLD_METERS } from "../constants"
@@ -16,7 +16,14 @@ function createWaypointId() {
   return crypto.randomUUID()
 }
 
-export function useRouteBuilder(sources: WaterSource[]) {
+type UseRouteBuilderOptions = {
+  onRouteComplete?: () => void
+}
+
+export function useRouteBuilder(
+  sources: WaterSource[],
+  { onRouteComplete }: UseRouteBuilderOptions = {},
+) {
   const [status, setStatus] = useState<RouteBuilderStatus>("idle")
   const [waypoints, setWaypoints] = useState<RouteWaypoint[]>([])
   const [snappedRoute, setSnappedRoute] = useState<SnappedRoute | null>(null)
@@ -104,14 +111,17 @@ export function useRouteBuilder(sources: WaterSource[]) {
         thresholdMeters,
       )
 
-      setReport({
-        entries,
-        routeDistanceMeters: route.distanceMeters,
-        thresholdMeters,
-        travelMode,
-        waypointCount: waypoints.length,
+      startTransition(() => {
+        setReport({
+          entries,
+          routeDistanceMeters: route.distanceMeters,
+          thresholdMeters,
+          travelMode,
+          waypointCount: waypoints.length,
+        })
+        setStatus("complete")
+        onRouteComplete?.()
       })
-      setStatus("complete")
     } catch (snapError) {
       setStatus("building")
       setError(
@@ -120,35 +130,59 @@ export function useRouteBuilder(sources: WaterSource[]) {
           : "Could not snap the route to roads.",
       )
     }
-  }, [sources, thresholdMeters, travelMode, waypoints])
+  }, [onRouteComplete, sources, thresholdMeters, travelMode, waypoints])
 
   const isPlacingWaypoints = status === "building"
   const isBuilding = status === "building" || status === "snapping"
   const isComplete = status === "complete"
+  const isSnapping = status === "snapping"
 
-  return {
-    status,
-    waypoints,
-    snappedRoute,
-    travelMode,
-    thresholdMeters,
-    report,
-    error,
-    isPlacingWaypoints,
-    isBuilding,
-    isComplete,
-    isSnapping: status === "snapping",
-    setTravelMode,
-    setThresholdMeters,
-    start,
-    cancel,
-    addWaypoint,
-    removeLastWaypoint,
-    removeWaypoint,
-    finish,
-    recalculateReport,
-    reset,
-  }
+  return useMemo(
+    () => ({
+      status,
+      waypoints,
+      snappedRoute,
+      travelMode,
+      thresholdMeters,
+      report,
+      error,
+      isPlacingWaypoints,
+      isBuilding,
+      isComplete,
+      isSnapping,
+      setTravelMode,
+      setThresholdMeters,
+      start,
+      cancel,
+      addWaypoint,
+      removeLastWaypoint,
+      removeWaypoint,
+      finish,
+      recalculateReport,
+      reset,
+    }),
+    [
+      status,
+      waypoints,
+      snappedRoute,
+      travelMode,
+      thresholdMeters,
+      report,
+      error,
+      isPlacingWaypoints,
+      isBuilding,
+      isComplete,
+      isSnapping,
+      start,
+      cancel,
+      addWaypoint,
+      removeLastWaypoint,
+      removeWaypoint,
+      finish,
+      recalculateReport,
+      reset,
+    ],
+  )
 }
 
 export type RouteBuilderState = ReturnType<typeof useRouteBuilder>

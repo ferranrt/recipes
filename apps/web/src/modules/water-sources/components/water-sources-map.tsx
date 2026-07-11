@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 import type { Feature, Point } from "geojson"
 
 import { useIsMobile } from "@/hooks/use-mobile"
@@ -11,6 +11,7 @@ import {
 } from "@workspace/ui/components/ui/map"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { barcelonaWaterSourcesByCode } from "../data"
 import type { WaterSource } from "../types"
 import { MapRouteClickHandler } from "../route-builder/components/map-route-click-handler"
 import { RouteBuilderMapLayers } from "../route-builder/components/route-builder-map-layers"
@@ -26,6 +27,20 @@ const BARCELONA_CENTER = {
   center: [2.1686, 41.3874] as [number, number],
   zoom: 12,
 }
+
+const DEFAULT_CLUSTER_COLORS = ["#a78bfa", "#8b5cf6", "#6d28d9"] as [
+  string,
+  string,
+  string,
+]
+
+const REPORT_CLUSTER_COLORS = ["#5eead4", "#14b8a6", "#0f766e"] as [
+  string,
+  string,
+  string,
+]
+
+const CLUSTER_THRESHOLDS = [25, 100] as [number, number]
 
 type WaterSourcesMapProps = {
   sources: WaterSource[]
@@ -90,14 +105,16 @@ function MapInitialUserFocus({
 }
 
 function MapSelectionSync({
+  selectedCode,
   selectedSource,
 }: {
+  selectedCode: string | null
   selectedSource: WaterSource | null
 }) {
   const { map, isLoaded } = useMap()
 
   useEffect(() => {
-    if (!map || !isLoaded || !selectedSource) {
+    if (!map || !isLoaded || !selectedCode || !selectedSource) {
       return
     }
 
@@ -107,7 +124,7 @@ function MapSelectionSync({
       duration: 700,
       essential: true,
     })
-  }, [isLoaded, map, selectedSource])
+  }, [isLoaded, map, selectedCode, selectedSource])
 
   return null
 }
@@ -126,6 +143,7 @@ export function WaterSourcesMap({
   const isPlacingWaypoints = routeBuilder?.isPlacingWaypoints ?? false
   const isRouteComplete = routeBuilder?.isComplete ?? false
   const isReportMode = isRouteComplete && routeBuilder?.report != null
+  const selectedCode = selectedSource?.code ?? null
 
   const visibleSources = useMemo(() => {
     if (isReportMode && routeBuilder?.report) {
@@ -141,45 +159,67 @@ export function WaterSourcesMap({
   )
   const bounds = useMemo(() => getWaterSourcesBounds(sources), [sources])
   const shouldFitBarcelona = permission !== "unknown" && !isLocationGranted
+  const clusterColors = isReportMode
+    ? REPORT_CLUSTER_COLORS
+    : DEFAULT_CLUSTER_COLORS
+  const pointColor = isReportMode ? "#14b8a6" : "#7c3aed"
 
-  const handlePointClick = (
-    feature: Feature<Point, WaterSourceMapProperties>
-  ) => {
-    const properties = feature.properties
+  const handlePointClick = useCallback(
+    (feature: Feature<Point, WaterSourceMapProperties>) => {
+      const properties = feature.properties
+      const matched = barcelonaWaterSourcesByCode.get(properties.code)
 
-    onSelect({
-      code: properties.code,
-      name: properties.name,
-      street: properties.street,
-      streetNumber: properties.streetNumber,
-      neighborhood: properties.neighborhood,
-      district: properties.district,
-      neighborhoodCode: "",
-      districtCode: "",
-      xEtrs89: 0,
-      yEtrs89: 0,
-      latitude: feature.geometry.coordinates[1],
-      longitude: feature.geometry.coordinates[0],
-    })
-  }
+      onSelect(
+        matched ?? {
+          code: properties.code,
+          name: properties.name,
+          street: properties.street,
+          streetNumber: properties.streetNumber,
+          neighborhood: properties.neighborhood,
+          district: properties.district,
+          neighborhoodCode: "",
+          districtCode: "",
+          xEtrs89: 0,
+          yEtrs89: 0,
+          latitude: feature.geometry.coordinates[1],
+          longitude: feature.geometry.coordinates[0],
+        },
+      )
+    },
+    [onSelect],
+  )
+
+  const handleClosePopup = useCallback(() => {
+    onSelect(null)
+  }, [onSelect])
+
+  const handleLocate = useCallback(
+    (coords: { latitude: number; longitude: number }) => {
+      syncLocation({
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+      })
+      startWatch()
+    },
+    [startWatch, syncLocation],
+  )
 
   return (
     <div className={cn("size-full", className)}>
       <Map className="size-full" {...BARCELONA_CENTER}>
         <MapInitialBounds bounds={bounds} enabled={shouldFitBarcelona} />
         <MapInitialUserFocus location={location} enabled={isLocationGranted} />
-        <MapSelectionSync selectedSource={selectedSource} />
+        <MapSelectionSync
+          selectedCode={selectedCode}
+          selectedSource={selectedSource}
+        />
         <MapClusterLayer
           data={geoJson}
           clusterMaxZoom={14}
           clusterRadius={48}
-          clusterColors={
-            isReportMode
-              ? ["#5eead4", "#14b8a6", "#0f766e"]
-              : ["#a78bfa", "#8b5cf6", "#6d28d9"]
-          }
-          clusterThresholds={[25, 100]}
-          pointColor={isReportMode ? "#14b8a6" : "#7c3aed"}
+          clusterColors={clusterColors}
+          clusterThresholds={CLUSTER_THRESHOLDS}
+          pointColor={pointColor}
           onPointClick={isRouteBuilding ? undefined : handlePointClick}
         />
         {routeBuilder ? (
@@ -203,19 +243,13 @@ export function WaterSourcesMap({
           showLocate
           position="bottom-right"
           className="max-md:bottom-16"
-          onLocate={(coords) => {
-            syncLocation({
-              latitude: coords.latitude,
-              longitude: coords.longitude,
-            })
-            startWatch()
-          }}
+          onLocate={handleLocate}
         />
         {location ? <MapUserLocation location={location} /> : null}
         {selectedSource && !isRouteBuilding ? (
           <FountainPopup
             source={selectedSource}
-            onClose={() => onSelect(null)}
+            onClose={handleClosePopup}
             className={isMobile ? "max-w-[calc(100vw-2.5rem)]" : undefined}
           />
         ) : null}
@@ -224,9 +258,6 @@ export function WaterSourcesMap({
   )
 }
 
-export function findWaterSourceByCode(
-  sources: WaterSource[],
-  code: string
-): WaterSource | null {
-  return sources.find((source) => source.code === code) ?? null
+export function findWaterSourceByCode(code: string): WaterSource | null {
+  return barcelonaWaterSourcesByCode.get(code) ?? null
 }

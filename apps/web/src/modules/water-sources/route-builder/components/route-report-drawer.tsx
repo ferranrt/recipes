@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
+import { useRef, type CSSProperties } from "react"
 import {
   IconDownload,
+  IconMap,
   IconRefresh,
   IconRoute,
 } from "@tabler/icons-react"
@@ -18,6 +19,8 @@ import { Slider } from "@workspace/ui/components/slider"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { useResponsiveDrawerDirection } from "@/hooks/use-responsive-drawer-direction"
+
 import type { WaterSource } from "../../types"
 import { getWaterSourceAddress, getWaterSourceDisplayName } from "../../utils"
 import {
@@ -29,39 +32,14 @@ import {
 import type { RouteBuilderState } from "../hooks/use-route-builder"
 import type { RouteReport } from "../types"
 import { exportReportToCsv, formatRouteDistance } from "../utils/export-report"
+import { openGoogleMapsFountains } from "../utils/export-google-maps"
 
 type RouteReportDrawerProps = {
   routeBuilder: RouteBuilderState
   open: boolean
   onOpenChange: (open: boolean) => void
   onSelectFountain: (source: WaterSource) => void
-}
-
-function useResponsiveDrawerDirection() {
-  const [direction, setDirection] = useState<"down" | "left">(() => {
-    if (typeof window === "undefined") {
-      return "down"
-    }
-
-    return window.matchMedia("(min-width: 768px)").matches ? "left" : "down"
-  })
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(min-width: 768px)")
-
-    const updateDirection = () => {
-      setDirection(mediaQuery.matches ? "left" : "down")
-    }
-
-    updateDirection()
-    mediaQuery.addEventListener("change", updateDirection)
-
-    return () => {
-      mediaQuery.removeEventListener("change", updateDirection)
-    }
-  }, [])
-
-  return direction
+  onNewRoute: () => void
 }
 
 function getSliderValue(value: number | readonly number[]): number | undefined {
@@ -168,19 +146,15 @@ export function RouteReportDrawer({
   open,
   onOpenChange,
   onSelectFountain,
+  onNewRoute,
 }: RouteReportDrawerProps) {
   const direction = useResponsiveDrawerDirection()
   const isBottomDrawer = direction === "down"
-  const { report, thresholdMeters, setThresholdMeters, recalculateReport, reset } =
+  const { report, thresholdMeters, setThresholdMeters, recalculateReport } =
     routeBuilder
 
-  const canRecalculate = useMemo(() => {
-    if (!report) {
-      return false
-    }
-
-    return thresholdMeters !== report.thresholdMeters
-  }, [report, thresholdMeters])
+  const canRecalculate =
+    report != null && thresholdMeters !== report.thresholdMeters
 
   if (!report) {
     return null
@@ -253,10 +227,21 @@ export function RouteReportDrawer({
             </Button>
           </div>
 
-          <VirtualReportList report={report} onSelectFountain={onSelectFountain} />
+          {open ? (
+            <VirtualReportList report={report} onSelectFountain={onSelectFountain} />
+          ) : null}
         </div>
 
         <div className="flex flex-wrap gap-2 border-t px-4 py-4">
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex-1"
+            onClick={() => openGoogleMapsFountains(report)}
+          >
+            <IconMap className="size-4" />
+            Google Maps
+          </Button>
           <Button
             size="sm"
             variant="outline"
@@ -269,11 +254,8 @@ export function RouteReportDrawer({
           <Button
             size="sm"
             variant="ghost"
-            className="flex-1"
-            onClick={() => {
-              reset()
-              onOpenChange(false)
-            }}
+            className="w-full"
+            onClick={onNewRoute}
           >
             New route
           </Button>

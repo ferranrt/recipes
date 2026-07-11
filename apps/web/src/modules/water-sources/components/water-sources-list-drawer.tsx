@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import type { CSSProperties } from "react"
 import { IconSearch } from "@tabler/icons-react"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
@@ -11,6 +11,8 @@ import {
 } from "@workspace/ui/components/drawer"
 import { cn } from "@workspace/ui/lib/utils"
 
+import { useResponsiveDrawerDirection } from "@/hooks/use-responsive-drawer-direction"
+
 import type { WaterSource } from "../types"
 import { WaterSourcesList } from "./water-sources-list"
 
@@ -20,33 +22,6 @@ type WaterSourcesListDrawerProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSelect: (source: WaterSource) => void
-}
-
-function useResponsiveDrawerDirection() {
-  const [direction, setDirection] = useState<"down" | "left">(() => {
-    if (typeof window === "undefined") {
-      return "down"
-    }
-
-    return window.matchMedia("(min-width: 768px)").matches ? "left" : "down"
-  })
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(min-width: 768px)")
-
-    const updateDirection = () => {
-      setDirection(mediaQuery.matches ? "left" : "down")
-    }
-
-    updateDirection()
-    mediaQuery.addEventListener("change", updateDirection)
-
-    return () => {
-      mediaQuery.removeEventListener("change", updateDirection)
-    }
-  }, [])
-
-  return direction
 }
 
 export function WaterSourcesListDrawer({
@@ -71,12 +46,8 @@ export function WaterSourcesListDrawer({
         className="gap-0 p-0"
         style={
           isBottomDrawer
-            ? ({
-                "--drawer-height": "min(88dvh, 42rem)",
-              } as React.CSSProperties)
-            : ({
-                "--drawer-content-width": "min(24rem, 75vw)",
-              } as React.CSSProperties)
+            ? ({ "--drawer-height": "min(88dvh, 42rem)" } as CSSProperties)
+            : ({ "--drawer-content-width": "min(24rem, 75vw)" } as CSSProperties)
         }
       >
         {isBottomDrawer ? (
@@ -88,7 +59,7 @@ export function WaterSourcesListDrawer({
           </DrawerHeader>
         ) : (
           <DrawerHeader className="border-b pb-4">
-            <DrawerTitle className="">Barcelona fountains</DrawerTitle>
+            <DrawerTitle>Barcelona fountains</DrawerTitle>
             <DrawerDescription>
               {sources.length.toLocaleString()} public water sources in
               Barcelona
@@ -96,14 +67,16 @@ export function WaterSourcesListDrawer({
           </DrawerHeader>
         )}
 
-        <WaterSourcesList
-          sources={sources}
-          selectedCode={selectedCode}
-          onSelect={onSelect}
-          compact={isBottomDrawer}
-          showTitle={isBottomDrawer}
-          className="min-h-0 flex-1"
-        />
+        {open ? (
+          <WaterSourcesList
+            sources={sources}
+            selectedCode={selectedCode}
+            onSelect={onSelect}
+            compact={isBottomDrawer}
+            showTitle={isBottomDrawer}
+            className="min-h-0 flex-1"
+          />
+        ) : null}
       </DrawerContent>
     </Drawer>
   )
