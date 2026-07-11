@@ -21,14 +21,16 @@ const navItems = [
     icon: IconHome,
   },
   {
-    title: "Water Sources",
+    title: "Fountains",
     to: "/water-sources",
     icon: IconDroplet,
   },
 ] as const
 
 export function AppSidebar() {
-  const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  })
   const { isMobile, setOpenMobile } = useSidebar()
 
   const handleNavigate = () => {

@@ -3,7 +3,7 @@ import { SidebarTrigger } from "@workspace/ui/components/sidebar"
 
 const routeTitles: Record<string, string> = {
   "/": "Home",
-  "/water-sources": "Water Sources",
+  "/water-sources": "Fountains",
 }
 
 function getRouteTitle(pathname: string): string {
@@ -15,7 +15,9 @@ function getRouteTitle(pathname: string): string {
 }
 
 export function SiteHeader() {
-  const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  })
   const title = getRouteTitle(pathname)
 
   return (

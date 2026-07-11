@@ -12,6 +12,7 @@ import {
   ItemContent,
   ItemDescription,
   ItemGroup,
+  ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
 import { cn } from "@workspace/ui/lib/utils"
@@ -44,7 +45,7 @@ function WaterSourceListItem({
 
   return (
     <Item
-      size="sm"
+      size="xs"
       variant={isSelected ? "muted" : "default"}
       className={cn(
         "w-full cursor-pointer rounded-lg",
@@ -52,19 +53,22 @@ function WaterSourceListItem({
       )}
       onClick={() => onSelect(source)}
     >
+      <ItemMedia className="rounded-full bg-primary/10 p-1 text-primary [&_svg]:size-3.5">
+        <IconDroplet />
+      </ItemMedia>
       <ItemContent>
-        <ItemTitle className="line-clamp-1">
-          {getWaterSourceDisplayName(source)}
-        </ItemTitle>
-        <ItemDescription className="flex flex-col gap-1">
-          {address ? <span className="line-clamp-1">{address}</span> : null}
-          <span className="line-clamp-1">
-            {source.neighborhood} · {source.district}
-          </span>
-        </ItemDescription>
-        <div className="flex flex-wrap gap-1 pt-1">
+        <div className="flex flex-row gap-2">
+          <ItemTitle className="line-clamp-1">
+            {getWaterSourceDisplayName(source)}
+          </ItemTitle>
           <Badge variant="secondary">{source.code}</Badge>
         </div>
+        <ItemDescription className="flex flex-col gap-1">
+          {address ? <span className="line-clamp-1">{address}</span> : null}
+        </ItemDescription>
+        <ItemDescription className="line-clamp-1">
+          {source.neighborhood} · {source.district}
+        </ItemDescription>
       </ItemContent>
     </Item>
   )

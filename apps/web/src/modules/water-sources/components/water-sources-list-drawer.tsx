@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react"
-import { IconList } from "@tabler/icons-react"
+import { IconList, IconSearch } from "@tabler/icons-react"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
@@ -90,7 +90,8 @@ export function WaterSourcesListDrawer({
           <DrawerHeader className="border-b pb-4">
             <DrawerTitle>Barcelona fountains</DrawerTitle>
             <DrawerDescription>
-              {sources.length.toLocaleString()} public water sources in Barcelona
+              {sources.length.toLocaleString()} public water sources in
+              Barcelona
             </DrawerDescription>
           </DrawerHeader>
         )}
@@ -126,14 +127,15 @@ export function WaterSourcesListToggle({
   return (
     <Button
       variant={open ? "secondary" : "default"}
-      className={cn("pointer-events-auto shadow-md", className)}
+      className={cn("pointer-events-auto w-full shadow-md", className)}
       onClick={() => onOpenChange(!open)}
       aria-expanded={open}
+      size="lg"
       aria-controls="water-sources-list-drawer"
     >
-      <IconList data-icon="inline-start" />
+      <IconSearch data-icon="inline-start" />
       <span className="max-sm:sr-only">Fountains</span>
-      <span className="sm:hidden">Browse</span>
+      <span className="sm:hidden">Cercar</span>
       <Badge variant="secondary">{sourceCount.toLocaleString()}</Badge>
       {selectedCode ? (
         <Badge variant="outline" className="max-sm:hidden">
