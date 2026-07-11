@@ -11,6 +11,7 @@ import {
 } from "@workspace/ui/components/sidebar"
 
 import { AppSidebar } from "@/components/app-sidebar"
+import { ClientOnly } from "@/components/client-only"
 import { SiteHeader } from "@/components/site-header"
 import appCss from "@workspace/ui/globals.css?url"
 
@@ -47,23 +48,31 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   return (
-    <SidebarProvider
-      className="h-dvh overflow-hidden"
-      style={
-        {
-          "--sidebar-width": "calc(var(--spacing) * 72)",
-          "--header-height": "calc(var(--spacing) * 11)",
-        } as React.CSSProperties
-      }
-    >
-      <AppSidebar />
-      <SidebarInset className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <SiteHeader />
-        <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+    <ClientOnly
+      fallback={
+        <div className="flex h-dvh min-h-0 flex-1 flex-col overflow-hidden">
           <Outlet />
         </div>
-      </SidebarInset>
-    </SidebarProvider>
+      }
+    >
+      <SidebarProvider
+        className="h-dvh overflow-hidden"
+        style={
+          {
+            "--sidebar-width": "calc(var(--spacing) * 72)",
+            "--header-height": "calc(var(--spacing) * 11)",
+          } as React.CSSProperties
+        }
+      >
+        <AppSidebar />
+        <SidebarInset className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <SiteHeader />
+          <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+            <Outlet />
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
+    </ClientOnly>
   )
 }
 

@@ -2,6 +2,7 @@ import { Suspense, lazy } from "react"
 import { createFileRoute } from "@tanstack/react-router"
 
 import { Spinner } from "@workspace/ui/components/spinner"
+import { ClientOnly } from "@/components/client-only"
 
 const WaterSourcesPage = lazy(async () => {
   const module = await import(
@@ -11,17 +12,19 @@ const WaterSourcesPage = lazy(async () => {
   return { default: module.WaterSourcesPage }
 })
 
+const pageFallback = (
+  <div className="flex size-full items-center justify-center">
+    <Spinner className="size-6 text-muted-foreground" />
+  </div>
+)
+
 function WaterSourcesRoute() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex size-full items-center justify-center">
-          <Spinner className="size-6 text-muted-foreground" />
-        </div>
-      }
-    >
-      <WaterSourcesPage />
-    </Suspense>
+    <ClientOnly fallback={pageFallback}>
+      <Suspense fallback={pageFallback}>
+        <WaterSourcesPage />
+      </Suspense>
+    </ClientOnly>
   )
 }
 
