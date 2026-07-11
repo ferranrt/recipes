@@ -8,10 +8,10 @@ import { TooltipProvider } from "@workspace/ui/components/tooltip"
 import {
   SidebarInset,
   SidebarProvider,
-  SidebarTrigger,
 } from "@workspace/ui/components/sidebar"
 
 import { AppSidebar } from "@/components/app-sidebar"
+import { SiteHeader } from "@/components/site-header"
 import appCss from "@workspace/ui/globals.css?url"
 
 export const Route = createRootRoute({
@@ -48,19 +48,18 @@ export const Route = createRootRoute({
 function RootLayout() {
   return (
     <SidebarProvider
+      className="h-dvh overflow-hidden"
       style={
         {
           "--sidebar-width": "calc(var(--spacing) * 72)",
-          "--header-height": "calc(var(--spacing) * 12)",
+          "--header-height": "calc(var(--spacing) * 11)",
         } as React.CSSProperties
       }
     >
       <AppSidebar />
-      <SidebarInset>
-        <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger />
-        </header>
-        <div className="flex flex-1 flex-col">
+      <SidebarInset className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <SiteHeader />
+        <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
           <Outlet />
         </div>
       </SidebarInset>
@@ -74,7 +73,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <body>
+      <body className="overflow-hidden">
         <TooltipProvider>{children}</TooltipProvider>
         <Scripts />
       </body>

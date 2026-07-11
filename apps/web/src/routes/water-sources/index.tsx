@@ -1,9 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router"
 
-export const Route = createFileRoute("/water-sources/")({
-  component: WaterSources,
-})
+import { WaterSourcesPage } from "@/modules/water-sources/components/water-sources-page"
 
-function WaterSources() {
-  return <div>WaterSources</div>
-}
+export const Route = createFileRoute("/water-sources/")({
+  head: () => ({
+    meta: [
+      {
+        title: "Water Sources · Barcelona",
+      },
+    ],
+  }),
+  component: WaterSourcesPage,
+})

@@ -11,6 +11,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarRail,
+  useSidebar,
 } from "@workspace/ui/components/sidebar"
 
 const navItems = [
@@ -28,13 +29,24 @@ const navItems = [
 
 export function AppSidebar() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
+  const { isMobile, setOpenMobile } = useSidebar()
+
+  const handleNavigate = () => {
+    if (isMobile) {
+      setOpenMobile(false)
+    }
+  }
 
   return (
     <Sidebar>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<Link to="/" />}>
+            <SidebarMenuButton
+              size="lg"
+              render={<Link to="/" />}
+              onClick={handleNavigate}
+            >
               <IconChefHat />
               <span className="font-medium">Recipes</span>
             </SidebarMenuButton>
@@ -50,6 +62,7 @@ export function AppSidebar() {
                 <SidebarMenuItem key={item.to}>
                   <SidebarMenuButton
                     render={<Link to={item.to} />}
+                    onClick={handleNavigate}
                     isActive={
                       item.to === "/"
                         ? pathname === "/"
