@@ -3,9 +3,9 @@ import { useState } from "react"
 import { barcelonaWaterSources } from "../data"
 import type { WaterSource } from "../types"
 import {
-  WaterSourcesListSheet,
+  WaterSourcesListDrawer,
   WaterSourcesListToggle,
-} from "./water-sources-list-sheet"
+} from "./water-sources-list-drawer"
 import {
   findWaterSourceByCode,
   WaterSourcesMap,
@@ -60,7 +60,7 @@ export function WaterSourcesPage() {
         />
       </div>
 
-      <WaterSourcesListSheet
+      <WaterSourcesListDrawer
         sources={barcelonaWaterSources}
         selectedCode={selectedSource?.code ?? null}
         open={listOpen}

@@ -3,18 +3,18 @@ import { IconList } from "@tabler/icons-react"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@workspace/ui/components/sheet"
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+} from "@workspace/ui/components/drawer"
 import { cn } from "@workspace/ui/lib/utils"
 
 import type { WaterSource } from "../types"
 import { WaterSourcesList } from "./water-sources-list"
 
-type WaterSourcesListSheetProps = {
+type WaterSourcesListDrawerProps = {
   sources: WaterSource[]
   selectedCode: string | null
   open: boolean
@@ -22,88 +22,89 @@ type WaterSourcesListSheetProps = {
   onSelect: (source: WaterSource) => void
 }
 
-function useResponsiveSheetSide() {
-  const [side, setSide] = useState<"bottom" | "left">(() => {
+function useResponsiveDrawerDirection() {
+  const [direction, setDirection] = useState<"down" | "left">(() => {
     if (typeof window === "undefined") {
-      return "bottom"
+      return "down"
     }
 
-    return window.matchMedia("(min-width: 768px)").matches ? "left" : "bottom"
+    return window.matchMedia("(min-width: 768px)").matches ? "left" : "down"
   })
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 768px)")
 
-    const updateSide = () => {
-      setSide(mediaQuery.matches ? "left" : "bottom")
+    const updateDirection = () => {
+      setDirection(mediaQuery.matches ? "left" : "down")
     }
 
-    updateSide()
-    mediaQuery.addEventListener("change", updateSide)
+    updateDirection()
+    mediaQuery.addEventListener("change", updateDirection)
 
     return () => {
-      mediaQuery.removeEventListener("change", updateSide)
+      mediaQuery.removeEventListener("change", updateDirection)
     }
   }, [])
 
-  return side
+  return direction
 }
 
-export function WaterSourcesListSheet({
+export function WaterSourcesListDrawer({
   sources,
   selectedCode,
   open,
   onOpenChange,
   onSelect,
-}: WaterSourcesListSheetProps) {
-  const side = useResponsiveSheetSide()
-  const isBottomSheet = side === "bottom"
+}: WaterSourcesListDrawerProps) {
+  const direction = useResponsiveDrawerDirection()
+  const isBottomDrawer = direction === "down"
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        id="water-sources-list-sheet"
-        side={side}
-        className={cn(
-          "flex flex-col gap-0 p-0",
-          isBottomSheet
-            ? "h-[min(88dvh,42rem)] rounded-t-2xl"
-            : "w-full max-w-sm border-r lg:max-w-96",
-        )}
+    <Drawer
+      open={open}
+      onOpenChange={onOpenChange}
+      swipeDirection={direction}
+      showSwipeHandle={isBottomDrawer}
+    >
+      <DrawerContent
+        id="water-sources-list-drawer"
+        className="gap-0 p-0"
+        style={
+          isBottomDrawer
+            ? ({
+                "--drawer-height": "min(88dvh, 42rem)",
+              } as React.CSSProperties)
+            : ({
+                "--drawer-content-width": "min(24rem, 75vw)",
+              } as React.CSSProperties)
+        }
       >
-        {isBottomSheet ? (
-          <SheetHeader className="sr-only">
-            <SheetTitle>Barcelona fountains</SheetTitle>
-            <SheetDescription>
+        {isBottomDrawer ? (
+          <DrawerHeader className="sr-only">
+            <DrawerTitle>Barcelona fountains</DrawerTitle>
+            <DrawerDescription>
               Browse and search public water sources in Barcelona.
-            </SheetDescription>
-          </SheetHeader>
+            </DrawerDescription>
+          </DrawerHeader>
         ) : (
-          <SheetHeader className="border-b p-4">
-            <SheetTitle>Barcelona fountains</SheetTitle>
-            <SheetDescription>
+          <DrawerHeader className="border-b pb-4">
+            <DrawerTitle>Barcelona fountains</DrawerTitle>
+            <DrawerDescription>
               {sources.length.toLocaleString()} public water sources in Barcelona
-            </SheetDescription>
-          </SheetHeader>
+            </DrawerDescription>
+          </DrawerHeader>
         )}
-
-        {isBottomSheet ? (
-          <div
-            aria-hidden
-            className="mx-auto mt-2 h-1 w-12 shrink-0 rounded-full bg-muted-foreground/30"
-          />
-        ) : null}
 
         <WaterSourcesList
           sources={sources}
           selectedCode={selectedCode}
           onSelect={onSelect}
-          compact={isBottomSheet}
-          showTitle={isBottomSheet}
+          compact={isBottomDrawer}
+          showTitle={isBottomDrawer}
           className="min-h-0 flex-1"
         />
-      </SheetContent>
-    </Sheet>
+      </DrawerContent>
+    </Drawer>
   )
 }
 
@@ -128,7 +129,7 @@ export function WaterSourcesListToggle({
       className={cn("pointer-events-auto shadow-md", className)}
       onClick={() => onOpenChange(!open)}
       aria-expanded={open}
-      aria-controls="water-sources-list-sheet"
+      aria-controls="water-sources-list-drawer"
     >
       <IconList data-icon="inline-start" />
       <span className="max-sm:sr-only">Fountains</span>
