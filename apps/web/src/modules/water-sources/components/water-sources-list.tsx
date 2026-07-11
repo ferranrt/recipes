@@ -1,7 +1,11 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { IconDroplet, IconSearch } from "@tabler/icons-react"
 import { Badge } from "@workspace/ui/components/badge"
-import { Empty, EmptyDescription, EmptyMedia } from "@workspace/ui/components/empty"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyMedia,
+} from "@workspace/ui/components/empty"
 import { Input } from "@workspace/ui/components/input"
 import {
   Item,
@@ -10,8 +14,8 @@ import {
   ItemGroup,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import { ScrollArea } from "@workspace/ui/components/scroll-area"
 import { cn } from "@workspace/ui/lib/utils"
+import { useVirtualizer } from "@tanstack/react-virtual"
 
 import type { WaterSource } from "../types"
 import {
@@ -19,6 +23,52 @@ import {
   getWaterSourceAddress,
   getWaterSourceDisplayName,
 } from "../utils"
+
+const LIST_ITEM_ESTIMATE = {
+  compact: 88,
+  default: 96,
+} as const
+
+type WaterSourceListItemProps = {
+  source: WaterSource
+  isSelected: boolean
+  onSelect: (source: WaterSource) => void
+}
+
+function WaterSourceListItem({
+  source,
+  isSelected,
+  onSelect,
+}: WaterSourceListItemProps) {
+  const address = getWaterSourceAddress(source)
+
+  return (
+    <Item
+      size="sm"
+      variant={isSelected ? "muted" : "default"}
+      className={cn(
+        "w-full cursor-pointer rounded-lg",
+        isSelected && "ring-1 ring-ring"
+      )}
+      onClick={() => onSelect(source)}
+    >
+      <ItemContent>
+        <ItemTitle className="line-clamp-1">
+          {getWaterSourceDisplayName(source)}
+        </ItemTitle>
+        <ItemDescription className="flex flex-col gap-1">
+          {address ? <span className="line-clamp-1">{address}</span> : null}
+          <span className="line-clamp-1">
+            {source.neighborhood} · {source.district}
+          </span>
+        </ItemDescription>
+        <div className="flex flex-wrap gap-1 pt-1">
+          <Badge variant="secondary">{source.code}</Badge>
+        </div>
+      </ItemContent>
+    </Item>
+  )
+}
 
 type WaterSourcesListProps = {
   sources: WaterSource[]
@@ -38,29 +88,55 @@ export function WaterSourcesList({
   showTitle = true,
 }: WaterSourcesListProps) {
   const [query, setQuery] = useState("")
+  const scrollRef = useRef<HTMLDivElement>(null)
 
   const filteredSources = useMemo(
     () => filterWaterSources(sources, query),
-    [query, sources],
+    [query, sources]
   )
 
+  const virtualizer = useVirtualizer({
+    count: filteredSources.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () =>
+      compact ? LIST_ITEM_ESTIMATE.compact : LIST_ITEM_ESTIMATE.default,
+    overscan: 10,
+    getItemKey: (index) => filteredSources[index]?.code ?? index,
+    measureElement: (element) => element.getBoundingClientRect().height,
+  })
+
+  const virtualItems = virtualizer.getVirtualItems()
+
+  useEffect(() => {
+    virtualizer.scrollToOffset(0)
+  }, [query, virtualizer])
+
+  useEffect(() => {
+    if (!selectedCode) {
+      return
+    }
+
+    const selectedIndex = filteredSources.findIndex(
+      (source) => source.code === selectedCode
+    )
+
+    if (selectedIndex >= 0) {
+      virtualizer.scrollToIndex(selectedIndex, { align: "auto" })
+    }
+  }, [filteredSources, selectedCode, virtualizer])
+
   return (
-    <aside
-      className={cn("flex min-h-0 flex-col bg-background", className)}
-    >
+    <aside className={cn("flex min-h-0 flex-col bg-background", className)}>
       <div
         className={cn(
           "flex shrink-0 flex-col gap-3 border-b",
-          compact ? "p-3" : "p-4",
+          compact ? "p-3" : "p-4"
         )}
       >
         <div className="flex flex-col gap-1">
           {showTitle ? (
             <h2
-              className={cn(
-                "font-medium",
-                compact ? "text-sm" : "text-base",
-              )}
+              className={cn("font-medium", compact ? "text-sm" : "text-base")}
             >
               Barcelona fountains
             </h2>
@@ -86,55 +162,48 @@ export function WaterSourcesList({
         ) : null}
       </div>
 
-      <ScrollArea className="min-h-0 flex-1">
-        {filteredSources.length === 0 ? (
-          <Empty className="border-0">
-            <EmptyMedia variant="icon">
-              <IconDroplet />
-            </EmptyMedia>
-            <EmptyDescription>
-              No water sources match your search.
-            </EmptyDescription>
-          </Empty>
-        ) : (
-          <ItemGroup className={cn("gap-0", compact ? "p-1.5" : "p-2")}>
-            {filteredSources.map((source) => {
-              const address = getWaterSourceAddress(source)
-              const isSelected = selectedCode === source.code
+      {filteredSources.length === 0 ? (
+        <Empty className="min-h-0 flex-1 border-0">
+          <EmptyMedia variant="icon">
+            <IconDroplet />
+          </EmptyMedia>
+          <EmptyDescription>
+            No water sources match your search.
+          </EmptyDescription>
+        </Empty>
+      ) : (
+        <div
+          ref={scrollRef}
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+        >
+          <ItemGroup
+            className={cn("relative w-full gap-0", compact ? "p-1.5" : "p-2")}
+            style={{ height: virtualizer.getTotalSize() }}
+          >
+            {virtualItems.map((virtualItem) => {
+              const source = filteredSources[virtualItem.index]
 
               return (
-                <Item
-                  key={source.code}
-                  size="sm"
-                  variant={isSelected ? "muted" : "default"}
-                  className={cn(
-                    "cursor-pointer rounded-lg",
-                    isSelected && "ring-1 ring-ring",
-                  )}
-                  onClick={() => onSelect(source)}
+                <div
+                  key={virtualItem.key}
+                  data-index={virtualItem.index}
+                  ref={virtualizer.measureElement}
+                  className="absolute top-0 left-0 w-full"
+                  style={{
+                    transform: `translateY(${virtualItem.start}px)`,
+                  }}
                 >
-                  <ItemContent>
-                    <ItemTitle className="line-clamp-1">
-                      {getWaterSourceDisplayName(source)}
-                    </ItemTitle>
-                    <ItemDescription className="flex flex-col gap-1">
-                      {address ? (
-                        <span className="line-clamp-1">{address}</span>
-                      ) : null}
-                      <span className="line-clamp-1">
-                        {source.neighborhood} · {source.district}
-                      </span>
-                    </ItemDescription>
-                    <div className="flex flex-wrap gap-1 pt-1">
-                      <Badge variant="secondary">{source.code}</Badge>
-                    </div>
-                  </ItemContent>
-                </Item>
+                  <WaterSourceListItem
+                    source={source}
+                    isSelected={selectedCode === source.code}
+                    onSelect={onSelect}
+                  />
+                </div>
               )
             })}
           </ItemGroup>
-        )}
-      </ScrollArea>
+        </div>
+      )}
     </aside>
   )
 }

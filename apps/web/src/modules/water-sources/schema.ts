@@ -1,4 +1,4 @@
-import { z } from "@workspace/ui/lib/zod"
+import { z } from "zod"
 
 const csvString = z.preprocess(
   (value) => (value == null ? "" : String(value)),

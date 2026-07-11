@@ -7,26 +7,15 @@ import {
   Map,
   MapClusterLayer,
   MapControls,
-  MapPopup,
   useMap,
 } from "@workspace/ui/components/ui/map"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card"
-import { Badge } from "@workspace/ui/components/badge"
 import { cn } from "@workspace/ui/lib/utils"
 
-import { useGeolocation, type UserLocation } from "../hooks/use-geolocation"
+import { useGeolocation } from "../hooks/use-geolocation"
+import type { UserLocation } from "../hooks/use-geolocation"
 import { getWaterSourcesBounds, waterSourcesToGeoJSON } from "../geojson"
 import type { WaterSource, WaterSourceMapProperties } from "../types"
-import {
-  getWaterSourceAddress,
-  getWaterSourceDisplayName,
-} from "../utils"
+import { FountainPopup } from "./fountain-popup"
 import { MapUserLocation } from "./map-user-location"
 
 const BARCELONA_CENTER = {
@@ -129,16 +118,12 @@ export function WaterSourcesMap({
     useGeolocation()
   const geoJson = useMemo(() => waterSourcesToGeoJSON(sources), [sources])
   const bounds = useMemo(() => getWaterSourcesBounds(sources), [sources])
-  const shouldFitBarcelona =
-    permission !== "unknown" && !isLocationGranted
+  const shouldFitBarcelona = permission !== "unknown" && !isLocationGranted
 
   const handlePointClick = (
-    feature: Feature<Point, WaterSourceMapProperties>,
+    feature: Feature<Point, WaterSourceMapProperties>
   ) => {
     const properties = feature.properties
-    if (!properties) {
-      return
-    }
 
     onSelect({
       code: properties.code,
@@ -160,10 +145,7 @@ export function WaterSourcesMap({
     <div className={cn("size-full", className)}>
       <Map className="size-full" {...BARCELONA_CENTER}>
         <MapInitialBounds bounds={bounds} enabled={shouldFitBarcelona} />
-        <MapInitialUserFocus
-          location={location}
-          enabled={isLocationGranted}
-        />
+        <MapInitialUserFocus location={location} enabled={isLocationGranted} />
         <MapSelectionSync selectedSource={selectedSource} />
         <MapClusterLayer
           data={geoJson}
@@ -190,37 +172,11 @@ export function WaterSourcesMap({
         />
         {location ? <MapUserLocation location={location} /> : null}
         {selectedSource ? (
-          <MapPopup
-            longitude={selectedSource.longitude}
-            latitude={selectedSource.latitude}
+          <FountainPopup
+            source={selectedSource}
             onClose={() => onSelect(null)}
-            closeButton
-            className={isMobile ? "max-w-[calc(100vw-2rem)]" : "max-w-xs"}
-          >
-            <Card className="border shadow-md">
-              <CardHeader className="gap-2">
-                <CardTitle className="text-base">
-                  {getWaterSourceDisplayName(selectedSource)}
-                </CardTitle>
-                <CardDescription>
-                  {getWaterSourceAddress(selectedSource) ||
-                    "Address not available"}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-2">
-                <p className="text-sm text-muted-foreground">
-                  {selectedSource.neighborhood} · {selectedSource.district}
-                </p>
-                <div className="flex flex-wrap gap-1">
-                  <Badge variant="secondary">{selectedSource.code}</Badge>
-                  <Badge variant="outline">
-                    {selectedSource.latitude.toFixed(5)},{" "}
-                    {selectedSource.longitude.toFixed(5)}
-                  </Badge>
-                </div>
-              </CardContent>
-            </Card>
-          </MapPopup>
+            className={isMobile ? "max-w-[calc(100vw-2.5rem)]" : undefined}
+          />
         ) : null}
       </Map>
     </div>
@@ -229,7 +185,7 @@ export function WaterSourcesMap({
 
 export function findWaterSourceByCode(
   sources: WaterSource[],
-  code: string,
+  code: string
 ): WaterSource | null {
   return sources.find((source) => source.code === code) ?? null
 }

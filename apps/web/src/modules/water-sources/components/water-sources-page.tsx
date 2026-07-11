@@ -6,10 +6,7 @@ import {
   WaterSourcesListDrawer,
   WaterSourcesListToggle,
 } from "./water-sources-list-drawer"
-import {
-  findWaterSourceByCode,
-  WaterSourcesMap,
-} from "./water-sources-map"
+import { findWaterSourceByCode, WaterSourcesMap } from "./water-sources-map"
 
 export function WaterSourcesPage() {
   const [selectedSource, setSelectedSource] = useState<WaterSource | null>(null)
@@ -17,7 +14,7 @@ export function WaterSourcesPage() {
 
   const handleSelect = (source: WaterSource) => {
     setSelectedSource((current) =>
-      current?.code === source.code ? null : source,
+      current?.code === source.code ? null : source
     )
     setListOpen(false)
   }
