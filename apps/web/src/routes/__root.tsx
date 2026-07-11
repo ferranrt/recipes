@@ -4,16 +4,16 @@ import {
   Scripts,
   createRootRoute,
 } from "@tanstack/react-router"
-import { TooltipProvider } from "@workspace/ui/components/tooltip"
-import {
-  SidebarInset,
-  SidebarProvider,
-} from "@workspace/ui/components/sidebar"
 
-import { AppSidebar } from "@/components/app-sidebar"
+import { AppShellLoader } from "@/components/app-shell-loader"
 import { ClientOnly } from "@/components/client-only"
-import { SiteHeader } from "@/components/site-header"
 import appCss from "@workspace/ui/globals.css?url"
+
+const shellFallback = (
+  <div className="flex h-dvh min-h-0 flex-1 flex-col overflow-hidden">
+    <Outlet />
+  </div>
+)
 
 export const Route = createRootRoute({
   head: () => ({
@@ -48,30 +48,8 @@ export const Route = createRootRoute({
 
 function RootLayout() {
   return (
-    <ClientOnly
-      fallback={
-        <div className="flex h-dvh min-h-0 flex-1 flex-col overflow-hidden">
-          <Outlet />
-        </div>
-      }
-    >
-      <SidebarProvider
-        className="h-dvh overflow-hidden"
-        style={
-          {
-            "--sidebar-width": "calc(var(--spacing) * 72)",
-            "--header-height": "calc(var(--spacing) * 11)",
-          } as React.CSSProperties
-        }
-      >
-        <AppSidebar />
-        <SidebarInset className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <SiteHeader />
-          <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-            <Outlet />
-          </div>
-        </SidebarInset>
-      </SidebarProvider>
+    <ClientOnly fallback={shellFallback}>
+      <AppShellLoader />
     </ClientOnly>
   )
 }
@@ -83,7 +61,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body className="overflow-hidden">
-        <TooltipProvider>{children}</TooltipProvider>
+        {children}
         <Scripts />
       </body>
     </html>
