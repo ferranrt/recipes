@@ -1,4 +1,12 @@
-import { memo, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
+import {
+  memo,
+  useCallback,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { IconDroplet, IconSearch } from "@tabler/icons-react"
 import {
   InputGroup,
@@ -57,7 +65,7 @@ const WaterSourceListItem = memo(function WaterSourceListItem({
       variant={isSelected ? "muted" : "default"}
       className={cn(
         "w-full cursor-pointer rounded-lg",
-        isSelected && "ring-1 ring-ring",
+        isSelected && "ring-1 ring-ring"
       )}
       onClick={handleSelect}
     >
@@ -66,7 +74,7 @@ const WaterSourceListItem = memo(function WaterSourceListItem({
       </ItemMedia>
       <ItemContent>
         <div className="flex flex-row gap-2">
-          <ItemTitle className="line-clamp-1">
+          <ItemTitle className="line-clamp-1 font-semibold">
             {getWaterSourceDisplayName(source)}
           </ItemTitle>
           <Badge variant="secondary">{source.code}</Badge>
@@ -105,7 +113,7 @@ export function WaterSourcesList({
 
   const filteredSources = useMemo(
     () => filterWaterSources(sources, deferredQuery),
-    [deferredQuery, sources],
+    [deferredQuery, sources]
   )
 
   const virtualizer = useVirtualizer({
@@ -130,7 +138,7 @@ export function WaterSourcesList({
     }
 
     const selectedIndex = filteredSources.findIndex(
-      (source) => source.code === selectedCode,
+      (source) => source.code === selectedCode
     )
 
     if (selectedIndex >= 0) {
@@ -143,14 +151,12 @@ export function WaterSourcesList({
       <div
         className={cn(
           "flex shrink-0 flex-col gap-3 border-b",
-          compact ? "p-3" : "p-4",
+          compact ? "p-3" : "p-4"
         )}
       >
         <div className="flex flex-col gap-1">
           {showTitle ? (
-            <h2
-              className={cn("font-medium", compact ? "text-sm" : "text-lg")}
-            >
+            <h2 className={cn("font-medium", compact ? "text-sm" : "text-lg")}>
               Barcelona fountains
             </h2>
           ) : null}

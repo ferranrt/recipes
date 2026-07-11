@@ -19,7 +19,9 @@ export function FountainPopup({
   const name = getWaterSourceDisplayName(source)
   const address = getWaterSourceAddress(source)
   const showAddress = Boolean(address) && address !== name
-  const area = [source.neighborhood, source.district].filter(Boolean).join(" · ")
+  const area = [source.neighborhood, source.district]
+    .filter(Boolean)
+    .join(" · ")
 
   return (
     <MapPopup
@@ -29,7 +31,7 @@ export function FountainPopup({
       closeButton
       className={cn(
         "max-w-60 overflow-hidden p-0 shadow-lg ring-1 ring-foreground/8 backdrop-blur-md supports-backdrop-filter:bg-popover/90",
-        className,
+        className
       )}
     >
       <div className="flex flex-col gap-2 px-3 py-2.5 pr-7">
@@ -41,7 +43,7 @@ export function FountainPopup({
             <p className="line-clamp-2 text-sm leading-snug font-medium">
               {name}
             </p>
-            <p className="font-mono text-[10px] tracking-wide text-muted-foreground">
+            <p className="text-[10px] tracking-wide text-muted-foreground">
               {source.code}
             </p>
           </div>

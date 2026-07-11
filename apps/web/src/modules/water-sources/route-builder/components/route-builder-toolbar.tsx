@@ -93,7 +93,6 @@ export function RouteBuilderToolbar({
           </Label>
           <NativeSelect
             id="travel-mode"
-            size="sm"
             className="w-full"
             value={travelMode}
             onChange={(event) =>
