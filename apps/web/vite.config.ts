@@ -7,7 +7,17 @@ import { nitro } from "nitro/vite"
 
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
-  plugins: [devtools(), tailwindcss(), tanstackStart(), viteReact(), nitro()],
+  plugins: [
+    process.env.NODE_ENV !== "production" ? devtools() : undefined,
+    tailwindcss(),
+    tanstackStart(),
+    viteReact(),
+    nitro({
+      config: {
+        preset: process.env.NITRO_PRESET || "vercel",
+      },
+    }),
+  ].filter(Boolean),
 })
 
 export default config
