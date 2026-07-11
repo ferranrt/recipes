@@ -26,6 +26,7 @@ type WaterSourcesListProps = {
   onSelect: (source: WaterSource) => void
   className?: string
   compact?: boolean
+  showTitle?: boolean
 }
 
 export function WaterSourcesList({
@@ -34,6 +35,7 @@ export function WaterSourcesList({
   onSelect,
   className,
   compact = false,
+  showTitle = true,
 }: WaterSourcesListProps) {
   const [query, setQuery] = useState("")
 
@@ -53,14 +55,16 @@ export function WaterSourcesList({
         )}
       >
         <div className="flex flex-col gap-1">
-          <h2
-            className={cn(
-              "font-medium",
-              compact ? "text-sm" : "text-base",
-            )}
-          >
-            Barcelona fountains
-          </h2>
+          {showTitle ? (
+            <h2
+              className={cn(
+                "font-medium",
+                compact ? "text-sm" : "text-base",
+              )}
+            >
+              Barcelona fountains
+            </h2>
+          ) : null}
           <p className="text-sm text-muted-foreground">
             {sources.length.toLocaleString()} public water sources
           </p>
