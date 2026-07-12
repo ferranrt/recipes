@@ -1,7 +1,7 @@
 "use client"
 
 import MapLibreGL from "maplibre-gl"
-import type { PopupOptions, MarkerOptions } from "maplibre-gl"
+import type { ExpressionSpecification, PopupOptions, MarkerOptions } from "maplibre-gl"
 import "maplibre-gl/dist/maplibre-gl.css"
 import type * as GeoJSON from "geojson"
 import {
@@ -21,6 +21,15 @@ import { createPortal } from "react-dom"
 import { X, Minus, Plus, Locate, Maximize, Loader2 } from "lucide-react"
 
 import { cn } from "@workspace/ui/lib/utils"
+import {
+  animateMapLayers,
+  MAP_POINT_ENTER_DURATION,
+  MAP_POINT_ENTER_EASE,
+  MAP_POINT_EXIT_DURATION,
+  MAP_POINT_EXIT_EASE,
+  prefersReducedMapMotion,
+  type AnimatedMapLayer,
+} from "@workspace/ui/lib/map-layer-motion"
 
 const defaultStyles = {
   dark: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
@@ -1890,6 +1899,66 @@ const DEFAULT_CLUSTER_COLORS: [string, string, string] = [
 ]
 const DEFAULT_CLUSTER_THRESHOLDS: [number, number] = [100, 750]
 
+const POINT_TRANSITION = {
+  duration: 280,
+  delay: 0,
+}
+
+const UNCLUSTERED_POINT_RADIUS = 5
+const UNCLUSTERED_POINT_HOVER_RADIUS = 7
+const UNCLUSTERED_POINT_OPACITY = 0.92
+const CLUSTER_LAYER_OPACITY = 0.85
+
+function getClusterColorExpression(
+  clusterColors: [string, string, string],
+  clusterThresholds: [number, number],
+) {
+  return [
+    "step",
+    ["get", "point_count"],
+    clusterColors[0],
+    clusterThresholds[0],
+    clusterColors[1],
+    clusterThresholds[1],
+    clusterColors[2],
+  ]
+}
+
+function getClusterRadiusExpression(clusterThresholds: [number, number]) {
+  return [
+    "step",
+    ["get", "point_count"],
+    20,
+    clusterThresholds[0],
+    30,
+    clusterThresholds[1],
+    40,
+  ]
+}
+
+function restoreUnclusteredPointPaint(map: MapLibreGL.Map, layerId: string) {
+  if (!map.getLayer(layerId)) return
+
+  map.setPaintProperty(layerId, "circle-radius", [
+    "case",
+    ["boolean", ["feature-state", "hover"], false],
+    UNCLUSTERED_POINT_HOVER_RADIUS,
+    UNCLUSTERED_POINT_RADIUS,
+  ])
+  map.setPaintProperty(layerId, "circle-stroke-width", [
+    "case",
+    ["boolean", ["feature-state", "hover"], false],
+    2.5,
+    2,
+  ])
+  map.setPaintProperty(layerId, "circle-opacity", [
+    "case",
+    ["boolean", ["feature-state", "hover"], false],
+    1,
+    UNCLUSTERED_POINT_OPACITY,
+  ])
+}
+
 function MapClusterLayer<
   P extends GeoJSON.GeoJsonProperties = GeoJSON.GeoJsonProperties,
 >({
@@ -1914,10 +1983,70 @@ function MapClusterLayer<
     clusterThresholds,
     pointColor,
   })
+  const animatedLayersRef = useRef<AnimatedMapLayer[]>([])
+  const layerAnimationRef = useRef<ReturnType<typeof animateMapLayers> | null>(
+    null,
+  )
+  const hasEnteredRef = useRef(false)
+  const previousDataRef = useRef<typeof data | null>(null)
+  const hoveredPointIdRef = useRef<string | number | null>(null)
+
+  const clusterRadiusExpression = useMemo(
+    () => getClusterRadiusExpression(clusterThresholds),
+    [clusterThresholds],
+  )
+
+  const stopLayerAnimation = useCallback(() => {
+    layerAnimationRef.current?.stop()
+    layerAnimationRef.current = null
+  }, [])
+
+  const getAnimatedLayers = useCallback((): AnimatedMapLayer[] => {
+    return [
+      {
+        layerId: clusterLayerId,
+        baseOpacity: CLUSTER_LAYER_OPACITY,
+        baseRadius: clusterRadiusExpression as ExpressionSpecification,
+      },
+      {
+        layerId: clusterCountLayerId,
+        baseOpacity: 1,
+        opacityProperty: "text-opacity",
+      },
+      {
+        layerId: unclusteredLayerId,
+        baseOpacity: UNCLUSTERED_POINT_OPACITY,
+        baseRadius: UNCLUSTERED_POINT_RADIUS,
+      },
+    ]
+  }, [clusterCountLayerId, clusterLayerId, clusterRadiusExpression, unclusteredLayerId])
+
+  const runEnterAnimation = useCallback(() => {
+    if (!map) return
+
+    stopLayerAnimation()
+    animatedLayersRef.current = getAnimatedLayers()
+    layerAnimationRef.current = animateMapLayers(
+      map,
+      animatedLayersRef.current,
+      0,
+      1,
+      {
+        duration: MAP_POINT_ENTER_DURATION,
+        ease: MAP_POINT_ENTER_EASE,
+      },
+    )
+
+    void layerAnimationRef.current.finished.then(() => {
+      restoreUnclusteredPointPaint(map, unclusteredLayerId)
+    })
+  }, [getAnimatedLayers, map, stopLayerAnimation, unclusteredLayerId])
 
   // Add source and layers on mount
   useEffect(() => {
     if (!isLoaded || !map) return
+
+    animatedLayersRef.current = getAnimatedLayers()
 
     // Add clustered GeoJSON source
     map.addSource(sourceId, {
@@ -1926,6 +2055,7 @@ function MapClusterLayer<
       cluster: true,
       clusterMaxZoom,
       clusterRadius,
+      promoteId: "id",
     })
 
     // Add cluster circles layer
@@ -1935,27 +2065,16 @@ function MapClusterLayer<
       source: sourceId,
       filter: ["has", "point_count"],
       paint: {
-        "circle-color": [
-          "step",
-          ["get", "point_count"],
-          clusterColors[0],
-          clusterThresholds[0],
-          clusterColors[1],
-          clusterThresholds[1],
-          clusterColors[2],
-        ],
-        "circle-radius": [
-          "step",
-          ["get", "point_count"],
-          20,
-          clusterThresholds[0],
-          30,
-          clusterThresholds[1],
-          40,
-        ],
+        "circle-color": getClusterColorExpression(
+          clusterColors,
+          clusterThresholds,
+        ) as ExpressionSpecification,
+        "circle-radius": clusterRadiusExpression as ExpressionSpecification,
         "circle-stroke-width": 1,
         "circle-stroke-color": "#fff",
-        "circle-opacity": 0.85,
+        "circle-opacity": 0,
+        "circle-opacity-transition": POINT_TRANSITION,
+        "circle-radius-transition": POINT_TRANSITION,
       },
     })
 
@@ -1972,6 +2091,8 @@ function MapClusterLayer<
       },
       paint: {
         "text-color": "#fff",
+        "text-opacity": 0,
+        "text-opacity-transition": POINT_TRANSITION,
       },
     })
 
@@ -1983,13 +2104,58 @@ function MapClusterLayer<
       filter: ["!", ["has", "point_count"]],
       paint: {
         "circle-color": pointColor,
-        "circle-radius": 5,
-        "circle-stroke-width": 2,
+        "circle-radius": [
+          "case",
+          ["boolean", ["feature-state", "hover"], false],
+          UNCLUSTERED_POINT_HOVER_RADIUS,
+          UNCLUSTERED_POINT_RADIUS,
+        ],
+        "circle-stroke-width": [
+          "case",
+          ["boolean", ["feature-state", "hover"], false],
+          2.5,
+          2,
+        ],
         "circle-stroke-color": "#fff",
+        "circle-opacity": [
+          "case",
+          ["boolean", ["feature-state", "hover"], false],
+          1,
+          UNCLUSTERED_POINT_OPACITY,
+        ],
+        "circle-opacity-transition": POINT_TRANSITION,
+        "circle-radius-transition": POINT_TRANSITION,
+        "circle-stroke-width-transition": POINT_TRANSITION,
       },
     })
 
+    if (prefersReducedMapMotion()) {
+      hasEnteredRef.current = true
+      animatedLayersRef.current.forEach((layer) => {
+        if (!map.getLayer(layer.layerId)) return
+        map.setPaintProperty(
+          layer.layerId,
+          layer.opacityProperty ?? "circle-opacity",
+          layer.baseOpacity,
+        )
+        if (layer.radiusProperty && layer.baseRadius !== undefined) {
+          map.setPaintProperty(
+            layer.layerId,
+            layer.radiusProperty,
+            layer.baseRadius,
+          )
+        }
+      })
+      restoreUnclusteredPointPaint(map, unclusteredLayerId)
+    } else {
+      runEnterAnimation()
+      hasEnteredRef.current = true
+    }
+
     return () => {
+      stopLayerAnimation()
+      hasEnteredRef.current = false
+      previousDataRef.current = null
       try {
         if (map.getLayer(clusterCountLayerId))
           map.removeLayer(clusterCountLayerId)
@@ -2006,13 +2172,62 @@ function MapClusterLayer<
 
   // Update source data when data prop changes (only for non-URL data)
   useEffect(() => {
-    if (!isLoaded || !map || typeof data === "string") return
+    if (!isLoaded || !map || typeof data === "string" || !hasEnteredRef.current) {
+      return
+    }
 
     const source = map.getSource(sourceId) as MapLibreGL.GeoJSONSource
-    if (source) {
-      source.setData(data)
+    if (!source) return
+
+    if (previousDataRef.current === null) {
+      previousDataRef.current = data
+      return
     }
-  }, [isLoaded, map, data, sourceId])
+
+    if (previousDataRef.current === data) return
+    previousDataRef.current = data
+
+    stopLayerAnimation()
+    animatedLayersRef.current = getAnimatedLayers()
+
+    if (prefersReducedMapMotion()) {
+      source.setData(data)
+      return
+    }
+
+    layerAnimationRef.current = animateMapLayers(
+      map,
+      animatedLayersRef.current,
+      1,
+      0,
+      {
+        duration: MAP_POINT_EXIT_DURATION,
+        ease: MAP_POINT_EXIT_EASE,
+      },
+    )
+
+    void layerAnimationRef.current.finished.then(() => {
+      if (!map.getSource(sourceId)) return
+
+      source.setData(data)
+      layerAnimationRef.current = animateMapLayers(
+        map,
+        animatedLayersRef.current,
+        0,
+        1,
+        {
+          duration: MAP_POINT_ENTER_DURATION,
+          ease: MAP_POINT_ENTER_EASE,
+        },
+      )
+
+      void layerAnimationRef.current.finished.then(() => {
+        restoreUnclusteredPointPaint(map, unclusteredLayerId)
+      })
+    })
+
+    return stopLayerAnimation
+  }, [data, getAnimatedLayers, isLoaded, map, sourceId, stopLayerAnimation])
 
   // Update layer styles when props change
   useEffect(() => {
@@ -2025,24 +2240,19 @@ function MapClusterLayer<
 
     // Update cluster layer colors and sizes
     if (map.getLayer(clusterLayerId) && colorsChanged) {
-      map.setPaintProperty(clusterLayerId, "circle-color", [
-        "step",
-        ["get", "point_count"],
-        clusterColors[0],
-        clusterThresholds[0],
-        clusterColors[1],
-        clusterThresholds[1],
-        clusterColors[2],
-      ])
-      map.setPaintProperty(clusterLayerId, "circle-radius", [
-        "step",
-        ["get", "point_count"],
-        20,
-        clusterThresholds[0],
-        30,
-        clusterThresholds[1],
-        40,
-      ])
+      map.setPaintProperty(
+        clusterLayerId,
+        "circle-color",
+        getClusterColorExpression(
+          clusterColors,
+          clusterThresholds,
+        ) as ExpressionSpecification,
+      )
+      map.setPaintProperty(
+        clusterLayerId,
+        "circle-radius",
+        clusterRadiusExpression as ExpressionSpecification,
+      )
     }
 
     // Update unclustered point layer color
@@ -2059,6 +2269,7 @@ function MapClusterLayer<
     clusterColors,
     clusterThresholds,
     pointColor,
+    clusterRadiusExpression,
   ])
 
   // Handle click events
@@ -2097,6 +2308,14 @@ function MapClusterLayer<
       }
     }
 
+    const clearHoveredPoint = () => {
+      const hoveredId = hoveredPointIdRef.current
+      if (hoveredId == null) return
+
+      map.setFeatureState({ source: sourceId, id: hoveredId }, { hover: false })
+      hoveredPointIdRef.current = null
+    }
+
     // Unclustered point click handler
     const handlePointClick = (
       e: MapLibreGL.MapMouseEvent & {
@@ -2121,6 +2340,32 @@ function MapClusterLayer<
       )
     }
 
+    const handlePointMouseEnter = (
+      e: MapLibreGL.MapMouseEvent & {
+        features?: MapLibreGL.MapGeoJSONFeature[]
+      }
+    ) => {
+      const feature = e.features?.[0]
+      const featureId = feature?.id
+
+      if (featureId == null) return
+
+      if (onPointClick) {
+        map.getCanvas().style.cursor = "pointer"
+      }
+
+      if (hoveredPointIdRef.current === featureId) return
+
+      clearHoveredPoint()
+      hoveredPointIdRef.current = featureId
+      map.setFeatureState({ source: sourceId, id: featureId }, { hover: true })
+    }
+
+    const handlePointMouseLeave = () => {
+      clearHoveredPoint()
+      map.getCanvas().style.cursor = ""
+    }
+
     // Cursor style handlers
     const handleMouseEnterCluster = () => {
       map.getCanvas().style.cursor = "pointer"
@@ -2128,29 +2373,22 @@ function MapClusterLayer<
     const handleMouseLeaveCluster = () => {
       map.getCanvas().style.cursor = ""
     }
-    const handleMouseEnterPoint = () => {
-      if (onPointClick) {
-        map.getCanvas().style.cursor = "pointer"
-      }
-    }
-    const handleMouseLeavePoint = () => {
-      map.getCanvas().style.cursor = ""
-    }
 
     map.on("click", clusterLayerId, handleClusterClick)
     map.on("click", unclusteredLayerId, handlePointClick)
     map.on("mouseenter", clusterLayerId, handleMouseEnterCluster)
     map.on("mouseleave", clusterLayerId, handleMouseLeaveCluster)
-    map.on("mouseenter", unclusteredLayerId, handleMouseEnterPoint)
-    map.on("mouseleave", unclusteredLayerId, handleMouseLeavePoint)
+    map.on("mouseenter", unclusteredLayerId, handlePointMouseEnter)
+    map.on("mouseleave", unclusteredLayerId, handlePointMouseLeave)
 
     return () => {
+      clearHoveredPoint()
       map.off("click", clusterLayerId, handleClusterClick)
       map.off("click", unclusteredLayerId, handlePointClick)
       map.off("mouseenter", clusterLayerId, handleMouseEnterCluster)
       map.off("mouseleave", clusterLayerId, handleMouseLeaveCluster)
-      map.off("mouseenter", unclusteredLayerId, handleMouseEnterPoint)
-      map.off("mouseleave", unclusteredLayerId, handleMouseLeavePoint)
+      map.off("mouseenter", unclusteredLayerId, handlePointMouseEnter)
+      map.off("mouseleave", unclusteredLayerId, handlePointMouseLeave)
     }
   }, [
     isLoaded,

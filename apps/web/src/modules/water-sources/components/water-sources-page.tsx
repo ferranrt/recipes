@@ -1,7 +1,5 @@
 import { useCallback, useState } from "react"
 
-import { useResponsiveDrawerDirection } from "@/hooks/use-responsive-drawer-direction"
-
 import { barcelonaWaterSources } from "../data"
 import { useRouteBuilder } from "../route-builder/hooks/use-route-builder"
 import {
@@ -82,7 +80,7 @@ export function WaterSourcesPage() {
         routeBuilder={routeBuilder}
       />
 
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start justify-between gap-3 p-3 md:p-4">
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-start gap-3 p-3 md:p-4">
         <WaterSourcesListToggle
           sourceCount={barcelonaWaterSources.length}
           selectedCode={selectedSource?.code ?? null}

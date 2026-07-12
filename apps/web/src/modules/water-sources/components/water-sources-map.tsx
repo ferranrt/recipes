@@ -12,14 +12,13 @@ import {
 import { cn } from "@workspace/ui/lib/utils"
 
 import { barcelonaWaterSourcesByCode } from "../data"
-import type { WaterSource } from "../types"
+import type { WaterSource, WaterSourceMapProperties } from "../types"
 import { MapRouteClickHandler } from "../route-builder/components/map-route-click-handler"
 import { RouteBuilderMapLayers } from "../route-builder/components/route-builder-map-layers"
 import type { RouteBuilderState } from "../route-builder/hooks/use-route-builder"
 import { useGeolocation } from "../hooks/use-geolocation"
 import type { UserLocation } from "../hooks/use-geolocation"
 import { getWaterSourcesBounds, waterSourcesToGeoJSON } from "../geojson"
-import type { WaterSourceMapProperties } from "../types"
 import { FountainPopup } from "./fountain-popup"
 import { MapUserLocation } from "./map-user-location"
 
@@ -146,16 +145,12 @@ export function WaterSourcesMap({
   const selectedCode = selectedSource?.code ?? null
 
   const visibleSources = useMemo(() => {
-    if (isReportMode && routeBuilder?.report) {
-      return routeBuilder.report.entries.map((entry) => entry.source)
-    }
-
     return sources
   }, [isReportMode, routeBuilder?.report, sources])
 
   const geoJson = useMemo(
     () => waterSourcesToGeoJSON(visibleSources),
-    [visibleSources],
+    [visibleSources]
   )
   const bounds = useMemo(() => getWaterSourcesBounds(sources), [sources])
   const shouldFitBarcelona = permission !== "unknown" && !isLocationGranted
@@ -183,10 +178,10 @@ export function WaterSourcesMap({
           yEtrs89: 0,
           latitude: feature.geometry.coordinates[1],
           longitude: feature.geometry.coordinates[0],
-        },
+        }
       )
     },
-    [onSelect],
+    [onSelect]
   )
 
   const handleClosePopup = useCallback(() => {
@@ -201,7 +196,7 @@ export function WaterSourcesMap({
       })
       startWatch()
     },
-    [startWatch, syncLocation],
+    [startWatch, syncLocation]
   )
 
   return (
